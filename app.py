@@ -433,14 +433,15 @@ with tabs[2]:
                 df_diff['權重差異 (%)'] = df_diff['權重(新)'] - df_diff['權重(舊)']
                 
                 def highlight_diff(row):
+                    # 使用較明亮且清爽的色系 (淺綠 / 淺紅)，並強制文字為黑色以確保絕佳可讀性
                     if row['權重(舊)'] == 0 and row['權重(新)'] > 0:
-                        return ['background-color: #004d00; color: #ccffcc'] * len(row) # 新兵 (Dark Green)
+                        return ['background-color: #a8f0c6; color: #000000'] * len(row) # 新兵入列 (明顯淺綠)
                     elif row['權重(新)'] == 0 and row['權重(舊)'] > 0:
-                        return ['background-color: #660000; color: #ffcccc'] * len(row) # 徹底剔除 (Dark Red)
+                        return ['background-color: #ffb3b3; color: #000000'] * len(row) # 徹底剔除 (明顯淺紅)
                     elif row['權重差異 (%)'] >= 1.0:
-                        return ['background-color: #1a3300'] * len(row) # 加碼老兵
+                        return ['background-color: #e6ffed; color: #000000'] * len(row) # 加碼老兵 (微綠)
                     elif row['權重差異 (%)'] <= -1.0:
-                        return ['background-color: #330000'] * len(row) # 減碼老兵
+                        return ['background-color: #ffe6e6; color: #000000'] * len(row) # 減碼老兵 (微紅)
                     return [''] * len(row)
                 
                 styled_df = df_diff.style.apply(highlight_diff, axis=1).format({
