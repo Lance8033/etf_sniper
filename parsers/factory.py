@@ -20,10 +20,13 @@ def get_parser(parser_type: str, ticker: str, issuer: str):
         raise ValueError(f"Unknown parser type: {parser_type}")
     return parser_class(ticker, issuer)
 
-def populate_mock_history_for_ticker(ticker: str, issuer: str, parser_type: str):
-    """此為展示用：當新增 ETF 時，自動產生前五個交易日的歷史資料"""
+def sync_etf_history(ticker: str, issuer: str, parser_type: str):
+    """
+    同步 ETF 的歷史資料。
+    當新增 ETF 或手動觸發時，自動抓取最近五個交易日的歷史資料。
+    """
     check_db_connection()
-    # 既然是重新 Populate，為了避免舊的假資料殘留，我們先清除該代號的所有歷史紀錄
+    # 清除舊的歷史紀錄，確保數據純淨
     supabase.table('etf_holdings_history').delete().eq('ticker', ticker).execute()
     
     parser = get_parser(parser_type, ticker, issuer)

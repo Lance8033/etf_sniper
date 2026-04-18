@@ -104,8 +104,8 @@ def render():
                             parser_instance = get_parser(new_parser, new_ticker, new_issuer)
                             if parser_instance.validate():
                                 add_etf_config(new_ticker, new_name, new_issuer, new_parser)
-                                populate_mock_history_for_ticker(new_ticker, new_issuer, new_parser)
-                                st.success(f"成功: {new_ticker} {new_name} 已加入雲端偵察序列！")
+                                sync_etf_history(new_ticker, new_name, new_issuer, new_parser)
+                                st.success(f"成功: {new_ticker} {new_name} 已加入雲端偵察序列並完成初步數據同步！")
                             else:
                                 st.error(f"解析器驗證失敗，無法偵測 {new_issuer} 的配置。")
                         except Exception as e:
