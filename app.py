@@ -385,25 +385,17 @@ with tabs[1]:
             # 排序依據權重
             df_latest = df_latest.sort_values(by='權重比例 (%)', ascending=False).reset_index(drop=True)
             
-            # 使用更精美的 Progress Bar 渲染器代替原本的純背景色
-            max_w = float(df_latest['權重比例 (%)'].max())
+            # 使用 Pandas Styler 背景漸層 (紅色系)，並保有千分位與百分比格式
+            styled_curr = df_latest.style.format({
+                '持有股數': "{:,.0f}",
+                '權重比例 (%)': "{:.2f}%"
+            }).background_gradient(subset=['權重比例 (%)'], cmap='Reds')
+            
             st.dataframe(
-                df_latest,
-                hide_index=True,                   # 隱藏醜醜的 0,1,2,3 索引
-                use_container_width=True,          # 展開填滿全畫面
-                height=(len(df_latest) + 1) * 35 + 3, # 動態計算高度消除卷軸
-                column_config={
-                    "股票代號": st.column_config.TextColumn("代號 (Symbol)", width="small"),
-                    "股票名稱": st.column_config.TextColumn("名稱 (Name)", width="medium"),
-                    "持有股數": st.column_config.NumberColumn("持有股數 (Shares)", format="%d", width="medium"),
-                    "權重比例 (%)": st.column_config.ProgressColumn(
-                        "權重火力佔比 (%)",
-                        help="這檔股票在此 ETF 總資產的佔比",
-                        format="%.2f %%",
-                        min_value=0,
-                        max_value=max_w,
-                    ),
-                }
+                styled_curr, 
+                use_container_width=True, 
+                hide_index=True,
+                height=(len(df_latest) + 1) * 35 + 3
             )
         else:
             st.info(f"並未在 Supabase 搜尋到 {global_target_ticker} 的歷史資料。")
