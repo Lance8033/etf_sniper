@@ -184,7 +184,23 @@ ISSUER_MAPPING = {
     "群益": ("群益", "網頁表格型 (HTML Table)"),
     "復華": ("復華", "CSV下載型 (CSV Download)"),
     "中信": ("中信", "網頁表格型 (HTML Table)"),
+    "統一": ("統一", "網頁表格型 (HTML Table)"),
+    "凱基": ("凱基", "網頁表格型 (HTML Table)"),
+    "台新": ("台新", "網頁表格型 (HTML Table)"),
+    "兆豐": ("兆豐", "網頁表格型 (HTML Table)"),
+    "永豐": ("永豐", "網頁表格型 (HTML Table)"),
+    "野村": ("野村", "網頁表格型 (HTML Table)"),
+    "大華": ("大華銀", "網頁表格型 (HTML Table)"),
+    "第一金": ("第一金", "網頁表格型 (HTML Table)"),
+    "新光": ("新光", "網頁表格型 (HTML Table)"),
+    "街口": ("街口", "網頁表格型 (HTML Table)"),
 }
+
+ALL_ISSUERS = [
+    "元大", "國泰", "群益", "富邦", "復華", "中信", 
+    "統一", "凱基", "台新", "兆豐", "永豐", "野村", 
+    "大華銀", "第一金", "新光", "街口"
+]
 
 # ==========================================
 # 3. Streamlit User Interface
@@ -263,9 +279,8 @@ with tabs[0]:
                 new_name = col2.text_input("ETF 名稱 (Name)", value=auto_name)
                 
                 col3, col4 = st.columns(2)
-                issuer_options = ["元大", "國泰", "群益", "富邦", "復華", "中信"]
-                issuer_idx = issuer_options.index(auto_issuer) if auto_issuer in issuer_options else 0
-                new_issuer = col3.selectbox("投信發行商 (Issuer)", issuer_options, index=issuer_idx)
+                issuer_idx = ALL_ISSUERS.index(auto_issuer) if auto_issuer in ALL_ISSUERS else 0
+                new_issuer = col3.selectbox("投信發行商 (Issuer)", ALL_ISSUERS, index=issuer_idx)
                 
                 parser_keys = list(PARSER_REGISTRY.keys())
                 parser_idx = parser_keys.index(auto_parser) if auto_parser in parser_keys else 0
