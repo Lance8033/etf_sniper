@@ -6,6 +6,7 @@ from typing import List, Dict
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import requests
 from supabase import create_client, Client
 
 # ==========================================
@@ -158,6 +159,34 @@ def populate_mock_history_for_ticker(ticker, issuer, parser_type):
                 pass # ignore uniqueness failures if re-running
 
 # ==========================================
+# 2.5 TWSE Open Data (證交所 API 自動查找)
+# ==========================================
+@st.cache_data(ttl=3600)
+def fetch_twse_etf_name(ticker: str) -> str:
+    """從證交所開放資料抓取代碼對應的名稱"""
+    try:
+        url = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL"
+        r = requests.get(url, timeout=5)
+        if r.status_code == 200:
+            data = r.json()
+            for stock in data:
+                # API 欄位通常叫 Code 與 Name
+                if stock.get('Code') == ticker:
+                    return stock.get('Name')
+    except Exception as e:
+        pass
+    return ""
+
+ISSUER_MAPPING = {
+    "元大": ("元大", "網頁表格型 (HTML Table)"),
+    "國泰": ("國泰", "CSV下載型 (CSV Download)"),
+    "富邦": ("富邦", "網頁表格型 (HTML Table)"),
+    "群益": ("群益", "網頁表格型 (HTML Table)"),
+    "復華": ("復華", "CSV下載型 (CSV Download)"),
+    "中信": ("中信", "網頁表格型 (HTML Table)"),
+}
+
+# ==========================================
 # 3. Streamlit User Interface
 # ==========================================
 
@@ -203,16 +232,46 @@ with tabs[0]:
             
         # 建立一個 Form 來輸入新 ETF
         with st.expander("➕ 新增觀察對象 (Add New ETF Target)", expanded=True):
+            st.markdown("💡 **第一步：主動偵測** (輸入代號後按 Enter，系統會連線證交所並推論出其餘資訊)")
+            auto_ticker = st.text_input("請輸入 ETF 代號 (Ticker) 例: 0050", key="input_ticker")
+            
+            auto_name = ""
+            auto_issuer = "元大" # 預設值
+            auto_parser = "網頁表格型 (HTML Table)" # 預設值
+            
+            if auto_ticker:
+                with st.spinner("🚀 正在向證券交易所連線查詢名稱與發行商..."):
+                    fetched_name = fetch_twse_etf_name(auto_ticker)
+                    if fetched_name:
+                        auto_name = fetched_name
+                        # 簡單推論發行商
+                        for keyword, (issuer, parser) in ISSUER_MAPPING.items():
+                            if keyword in auto_name:
+                                auto_issuer = issuer
+                                auto_parser = parser
+                                break
+                        st.success(f"✅ 自動查獲目標：**{auto_name}** | 系統推測投信：**{auto_issuer}**")
+                    else:
+                        st.warning("⚠️ 證交所公開資料中並未尋獲此代號，請在下方手動填寫補充。")
+            
+            st.markdown("---")
             with st.form("add_etf_form", clear_on_submit=True):
+                st.markdown("💡 **第二步：確認與發射** (檢查下方自動帶入的參數，確認無誤後即可送出)")
                 col1, col2 = st.columns(2)
-                new_ticker = col1.text_input("ETF 代號 (Ticker)")
-                new_name = col2.text_input("ETF 名稱 (Name)")
+                # 使用 value= 將抓取到的資料填入
+                new_ticker = col1.text_input("ETF 代號 (Ticker)", value=auto_ticker)
+                new_name = col2.text_input("ETF 名稱 (Name)", value=auto_name)
                 
                 col3, col4 = st.columns(2)
-                new_issuer = col3.selectbox("投信發行商 (Issuer)", ["元大", "國泰", "群益", "富邦", "復華", "中信"])
-                new_parser = col4.selectbox("解析器類型 (Parser Type)", list(PARSER_REGISTRY.keys()))
+                issuer_options = ["元大", "國泰", "群益", "富邦", "復華", "中信"]
+                issuer_idx = issuer_options.index(auto_issuer) if auto_issuer in issuer_options else 0
+                new_issuer = col3.selectbox("投信發行商 (Issuer)", issuer_options, index=issuer_idx)
                 
-                submit = st.form_submit_button("新增入列 🚀")
+                parser_keys = list(PARSER_REGISTRY.keys())
+                parser_idx = parser_keys.index(auto_parser) if auto_parser in parser_keys else 0
+                new_parser = col4.selectbox("解析器類型 (Parser Type)", parser_keys, index=parser_idx)
+                
+                submit = st.form_submit_button("確認新增入列 🚀")
                 
                 if submit:
                     if new_ticker and new_name:
