@@ -248,7 +248,7 @@ else:
     target_etf = None
 
 # Main Content Navigation
-tabs = st.tabs(["⚙️ 戰略配置中心", "📋 最新持股 (Current)", "⚔️ 每日突擊訊號 (Diff)", "📈 時空夜視鏡 (Trend Chart)"])
+tabs = st.tabs(["⚙️ 戰略配置中心", "📋 最新持股 (Current)", "⚔️ 每日突擊訊號 (Diff)", "📈 時空夜視鏡 (Trend Chart)", "📡 投信共識雷達"])
 
 # ----------------- Tab 1: 戰略配置中心 -----------------
 with tabs[0]:
@@ -492,3 +492,96 @@ with tabs[3]:
                 st.info("請於上方選單選擇至少一檔成份股。")
         else:
             st.info(f"目前雲端無 {global_target_ticker} 歷史趨勢數據。")
+
+# ----------------- Tab 5: 投信共識雷達 (Consensus Radar) -----------------
+with tabs[4]:
+    st.header("📡 投信共識雷達 - 跨 ETF 聯合建倉追蹤")
+    st.markdown("宏觀掃描全市場，找出多檔 ETF **正在不約而同聯手買進** 的共識潛力股。")
+    
+    active_etfs_for_radar = get_active_etfs()
+    
+    if active_etfs_for_radar.empty:
+        st.warning("目前沒有啟用中的 ETF，請回「戰略配置中心」設定。")
+    else:
+        active_tickers = active_etfs_for_radar['ticker'].tolist()
+        
+        # 抓取這些 ETF 所有的持股歷史
+        response = supabase.table('etf_holdings_history').select('*').in_('ticker', active_tickers).order('date', desc=True).execute()
+        df_all = pd.DataFrame(response.data)
+        
+        if not df_all.empty:
+            consensus_records = []
+            
+            # 對每一個 ETF 分別計算最新的 Diff
+            for ticker in active_tickers:
+                df_ticker = df_all[df_all['ticker'] == ticker]
+                dates = df_ticker['date'].unique()
+                if len(dates) >= 2:
+                    date_new = dates[0]
+                    date_old = dates[1]
+                    
+                    df_new = df_ticker[df_ticker['date'] == date_new][['stock_symbol', 'stock_name', 'weight']]
+                    df_old = df_ticker[df_ticker['date'] == date_old][['stock_symbol', 'stock_name', 'weight']]
+                    
+                    df_diff = pd.merge(df_old, df_new, on=['stock_symbol', 'stock_name'], how='outer', suffixes=('_old', '_new'))
+                    df_diff.fillna(0, inplace=True)
+                    df_diff['diff_weight'] = df_diff['weight_new'] - df_diff['weight_old']
+                    
+                    # 只保留有增加的 (加碼 或 新兵入列)，避免受到微小的浮點數影響，設定 > 0.001
+                    df_diff_positive = df_diff[df_diff['diff_weight'] > 0.001]
+                    
+                    for _, row in df_diff_positive.iterrows():
+                        consensus_records.append({
+                            'stock_symbol': row['stock_symbol'],
+                            'stock_name': row['stock_name'],
+                            'source_etf': ticker,
+                            'diff_weight': row['diff_weight']
+                        })
+            
+            if consensus_records:
+                df_consensus = pd.DataFrame(consensus_records)
+                
+                # 聚類分組 (Group by 股票代號)
+                df_grouped = df_consensus.groupby(['stock_symbol', 'stock_name']).agg(
+                    ETF家數=('source_etf', 'count'),
+                    總加碼權重=('diff_weight', 'sum'),
+                    買進的ETF清單=('source_etf', lambda x: ', '.join(x))
+                ).reset_index()
+                
+                # 排序: 首要看幾家一起買，次要看權重買多少
+                df_grouped = df_grouped.sort_values(by=['ETF家數', '總加碼權重'], ascending=[False, False]).reset_index(drop=True)
+                
+                # 欄位美化
+                df_grouped = df_grouped.rename(columns={
+                    'stock_symbol': '股票代號',
+                    'stock_name': '股票名稱'
+                })
+                
+                # 畫出來
+                st.dataframe(
+                    df_grouped,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        '股票代號': st.column_config.TextColumn("股票代號", width="small"),
+                        '股票名稱': st.column_config.TextColumn("股票名稱", width="small"),
+                        'ETF家數': st.column_config.ProgressColumn(
+                            "聯手建倉家數",
+                            help="有幾家 ETF 在最新交易日同步買進",
+                            format="%d 家",
+                            min_value=0,
+                            max_value=max(int(df_grouped['ETF家數'].max()), 1)
+                        ),
+                        '總加碼權重': st.column_config.NumberColumn(
+                            "總增幅綜合權重 (%)",
+                            help="被這幾家 ETF 同步加碼的權重百分比總和",
+                            format="%.2f%%"
+                        ),
+                        '買進的ETF清單': st.column_config.TextColumn("參與買進的 ETF", width="medium")
+                    }
+                )
+                st.markdown("> 🎯 **戰情室雷達解讀**: 此處**只顯示最新一日內被投信「聯手加碼」或「新建倉」**的子彈股。排名越前面的股票，被越多檔高股息/科技 ETF 同時買進，代表越是近期的**主力共識股**！如果您要挑選建倉目標，這裡就是黃金池。")
+            else:
+                st.info("在最新的兩日變動中，目前所有的觀察目標 ETF 均沒有出現個股加碼的動作。")
+        else:
+            st.info("雲端資料庫目前尚無可用歷史紀錄來進行比對計算。")
