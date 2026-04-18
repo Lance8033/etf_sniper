@@ -215,8 +215,21 @@ if not supabase:
     st.info("架構已完全升級為 GitHub + Supabase。這代表您不再需要本地資料庫囉！")
     st.stop()
 
-# Navigation
-tabs = st.tabs(["⚙️ 戰略配置中心", "⚔️ 每日突擊訊號 (Diff)", "📈 時空夜視鏡 (Trend Chart)"])
+# Navigation Sidebar
+st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3256/3256903.png", width=50) # 一個小icon
+st.sidebar.markdown("### 🎯 狙擊偵察目標")
+st.sidebar.markdown("---")
+active_etfs = get_active_etfs()
+if not active_etfs.empty:
+    options = active_etfs['ticker'] + " - " + active_etfs['name']
+    target_etf = st.sidebar.radio("選擇要觀察的 ETF：", options)
+    global_target_ticker = target_etf.split(" - ")[0]
+else:
+    global_target_ticker = None
+    target_etf = None
+
+# Main Content Navigation
+tabs = st.tabs(["⚙️ 戰略配置中心", "📋 最新持股 (Current)", "⚔️ 每日突擊訊號 (Diff)", "📈 時空夜視鏡 (Trend Chart)"])
 
 # ----------------- Tab 1: 戰略配置中心 -----------------
 with tabs[0]:
@@ -342,21 +355,43 @@ with tabs[0]:
         else:
             st.info("目前 Supabase 資料庫中沒有任何觀察目標，請從上方表單新增。")
 
-# ----------------- Tab 2: 每日突擊訊號 (Diff) -----------------
+# ----------------- Tab 2: 最新持股 (Current) -----------------
 with tabs[1]:
+    st.header("📋 最新持股火力分佈")
+    if not global_target_ticker:
+        st.warning("👈 請先從左側選單選擇偵察目標，或回到「戰略配置中心」設定啟用。")
+    else:
+        st.markdown(f"**目前鎖定目標**: {target_etf}")
+        response = supabase.table('etf_holdings_history').select('*').eq('ticker', global_target_ticker).order('date', desc=True).execute()
+        df_history = pd.DataFrame(response.data)
+        
+        if not df_history.empty:
+            latest_date = df_history['date'].iloc[0]
+            st.success(f"📊 最新資料日期：**{latest_date}**")
+            df_latest = df_history[df_history['date'] == latest_date][['stock_symbol', 'stock_name', 'shares', 'weight']]
+            df_latest = df_latest.rename(columns={'stock_symbol': '股票代號', 'stock_name': '股票名稱', 'shares': '持有股數', 'weight': '權重比例 (%)'})
+            # 排序依據權重
+            df_latest = df_latest.sort_values(by='權重比例 (%)', ascending=False).reset_index(drop=True)
+            
+            styled_curr = df_latest.style.format({
+                '持有股數': "{:,.0f}",
+                '權重比例 (%)': "{:.2f}%"
+            }).background_gradient(subset=['權重比例 (%)'], cmap='Greens')
+            st.dataframe(styled_curr, use_container_width=True)
+        else:
+            st.info(f"並未在 Supabase 搜尋到 {global_target_ticker} 的歷史資料。")
+
+# ----------------- Tab 3: 每日突擊訊號 (Diff) -----------------
+with tabs[2]:
     st.header("⚔️ 影子比對引擎 - 每日持股突擊訊號")
     
-    active_etfs = get_active_etfs()
-    if active_etfs.empty:
-        st.warning("目前沒有啟用中的 ETF，請回「戰略配置中心」設定。")
+    if not global_target_ticker:
+        st.warning("👈 請先從左側選單選擇偵察目標。")
     else:
-        target_etf = st.sidebar.selectbox("🎯 選擇偵察目標", active_etfs['ticker'] + " - " + active_etfs['name'])
-        target_ticker = target_etf.split(" - ")[0]
-        
         st.markdown(f"**目前鎖定目標**: {target_etf}")
         
         # 從 Supabase 拿這個 ETF 的最近資料
-        response = supabase.table('etf_holdings_history').select('*').eq('ticker', target_ticker).order('date', desc=True).execute()
+        response = supabase.table('etf_holdings_history').select('*').eq('ticker', global_target_ticker).order('date', desc=True).execute()
         df_history = pd.DataFrame(response.data)
 
         if not df_history.empty:
@@ -397,20 +432,19 @@ with tabs[1]:
                 st.dataframe(styled_df, use_container_width=True)
                 st.markdown("> **說明**: 深綠底為新進成份股(新兵)，深紅底為完全剔除；微綠/微紅底代表權重增減超過 1%。")
             else:
-                st.info(f"目標 {target_ticker} 在雲端的歷史資料不足兩天，無法進行 Diff 比較。")
+                st.info(f"目標 {global_target_ticker} 在雲端的歷史資料不足兩天，無法進行 Diff 比較。")
         else:
-             st.info(f"並未在 Supabase 搜尋到 {target_ticker} 的任何歷史資料。")
+             st.info(f"並未在 Supabase 搜尋到 {global_target_ticker} 的任何歷史資料。")
 
-# ----------------- Tab 3: 多天時空夜視鏡 (Trend Chart) -----------------
-with tabs[2]:
+# ----------------- Tab 4: 多天時空夜視鏡 (Trend Chart) -----------------
+with tabs[3]:
     st.header("📈 時空夜視鏡 - 籌碼趨勢雷達")
     
-    if active_etfs.empty:
-        st.warning("目前沒有啟用中的 ETF，請回「戰略配置中心」設定。")
+    if not global_target_ticker:
+        st.warning("👈 請先從左側選單選擇偵察目標。")
     else:
-        trend_ticker = st.selectbox("🎯 選擇要觀看趨勢的 ETF", active_etfs['ticker'], key="trend_ticker")
-        
-        response = supabase.table('etf_holdings_history').select('date, stock_symbol, stock_name, weight').eq('ticker', trend_ticker).order('date').execute()
+        st.markdown(f"**目前鎖定目標**: {target_etf}")
+        response = supabase.table('etf_holdings_history').select('date, stock_symbol, stock_name, weight').eq('ticker', global_target_ticker).order('date').execute()
         df_trend = pd.DataFrame(response.data)
         
         if not df_trend.empty:
@@ -422,7 +456,7 @@ with tabs[2]:
                 plot_data['label'] = plot_data['stock_symbol'] + " " + plot_data['stock_name']
                 
                 fig = px.line(plot_data, x='date', y='weight', color='label', markers=True,
-                              title=f'{trend_ticker} 重點成分股權重變化趨勢 (Cloud Data)',
+                              title=f'{global_target_ticker} 重點成分股權重變化趨勢 (Cloud Data)',
                               labels={'date': '日期', 'weight': '權重 (%)', 'label': '個股'})
                 
                 fig.update_layout(hovermode="x unified", template='plotly_dark')
@@ -430,4 +464,4 @@ with tabs[2]:
             else:
                 st.info("請於上方選單選擇至少一檔成份股。")
         else:
-            st.info(f"目前雲端無 {trend_ticker} 歷史趨勢數據。")
+            st.info(f"目前雲端無 {global_target_ticker} 歷史趨勢數據。")
