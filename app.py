@@ -176,77 +176,97 @@ tabs = st.tabs(["⚙️ 戰略配置中心", "⚔️ 每日突擊訊號 (Diff)",
 # ----------------- Tab 1: 戰略配置中心 -----------------
 with tabs[0]:
     st.header("戰略配置中心")
-    st.markdown("在這裡管理並調整您的觀察火力，拒絕程式硬編碼。資料即時寫入 **Supabase**，永不遺失。")
     
-    # 建立一個 Form 來輸入新 ETF
-    with st.expander("➕ 新增觀察對象 (Add New ETF Target)", expanded=True):
-        with st.form("add_etf_form", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            new_ticker = col1.text_input("ETF 代號 (Ticker)")
-            new_name = col2.text_input("ETF 名稱 (Name)")
-            
-            col3, col4 = st.columns(2)
-            new_issuer = col3.selectbox("投信發行商 (Issuer)", ["元大", "國泰", "群益", "富邦", "復華", "中信"])
-            new_parser = col4.selectbox("解析器類型 (Parser Type)", list(PARSER_REGISTRY.keys()))
-            
-            submit = st.form_submit_button("新增入列 🚀")
-            
-            if submit:
-                if new_ticker and new_name:
-                    try:
-                        # 測試驗證
-                        parser_instance = get_parser(new_parser, new_ticker, new_issuer)
-                        if parser_instance.validate():
-                            add_etf_config(new_ticker, new_name, new_issuer, new_parser)
-                            # 因為是新加入，自動產生一些假歷史資料好做圖表展示
-                            populate_mock_history_for_ticker(new_ticker, new_issuer, new_parser)
-                            st.success(f"成功: {new_ticker} {new_name} 已加入雲端偵察序列！")
-                        else:
-                            st.error(f"解析器驗證失敗，無法偵測 {new_issuer} 的配置。")
-                    except Exception as e:
-                        st.error(f"系統錯誤: {e}")
-                else:
-                    st.warning("請填寫完整的代號與名稱！")
+    if 'is_admin' not in st.session_state:
+        st.session_state['is_admin'] = False
 
-    # 列出現有 DB 中的資料並用 Data_Editor 直接編輯狀態
-    st.subheader("📋 現有觀測序列管理")
-    df_config = get_all_etfs()
-    
-    if not df_config.empty:
-        # 轉換 boolean 以便在 Editor 中使用 Checkbox
-        df_config['is_active'] = df_config['is_active'].astype(bool)
-        
-        edited_df = st.data_editor(
-            df_config,
-            column_config={
-                "is_active": st.column_config.CheckboxColumn("是否啟用偵察?", default=True),
-                "ticker": st.column_config.TextColumn("代號", disabled=True),
-                "name": st.column_config.TextColumn("名稱", disabled=True),
-                "issuer": st.column_config.TextColumn("投信", disabled=True),
-                "parser_type": st.column_config.TextColumn("解析器", disabled=True),
-                "last_updated": st.column_config.DatetimeColumn("最後更新時間", disabled=True)
-            },
-            hide_index=True,
-            use_container_width=True,
-            key='config_editor'
-        )
-        
-        col_s, col_d = st.columns([1, 1])
-        # 按鈕：儲存變更
-        if col_s.button("💾 儲存狀態變更"):
-            edited_df['is_active'] = edited_df['is_active'].astype(int)
-            update_etf_config_status(edited_df)
-            st.success("配置狀態已成功同步至 Supabase 雲端資料庫。")
+    # 要求密碼登入
+    if not st.session_state['is_admin']:
+        st.warning("🔒 核心機房區域已上鎖。目前為**訪客模式**觀看資料。只有管理員才能新增或撤防追蹤任務。")
+        pwd = st.text_input("請輸入最高指揮官 (Admin) 密碼：", type="password")
+        if st.button("解鎖權限"):
+            # 從 secrets 抓密碼，若未設定則預設為 "admin123"
+            correct_pwd = st.secrets.get("ADMIN_PASSWORD", "admin123")
+            if pwd == correct_pwd:
+                st.session_state['is_admin'] = True
+                st.rerun()
+            else:
+                st.error("❌ 存取拒絕，密碼錯誤！")
+                
+    # 成功解鎖後才顯示以下管理內容
+    if st.session_state['is_admin']:
+        col1, col2 = st.columns([8, 2])
+        col1.success("✅ **最高指揮官身分驗證完成**，武器系統已解鎖。資料將即時寫入 **Supabase** 雲端。")
+        if col2.button("登出 (撤銷權限)"):
+            st.session_state['is_admin'] = False
             st.rerun()
             
-        # 按鈕：刪除選定的 ETF
-        ticker_to_delete = col_d.selectbox("選擇要刪除撤防的 ETF", df_config['ticker'].tolist())
-        if col_d.button("🗑️ 刪除並撤除資料"):
-            delete_etf_config(ticker_to_delete)
-            st.success(f"{ticker_to_delete} 及其雲端歷史數據已全面清除。")
-            st.rerun()
-    else:
-        st.info("目前 Supabase 資料庫中沒有任何觀察目標，請從上方表單新增。")
+        # 建立一個 Form 來輸入新 ETF
+        with st.expander("➕ 新增觀察對象 (Add New ETF Target)", expanded=True):
+            with st.form("add_etf_form", clear_on_submit=True):
+                col1, col2 = st.columns(2)
+                new_ticker = col1.text_input("ETF 代號 (Ticker)")
+                new_name = col2.text_input("ETF 名稱 (Name)")
+                
+                col3, col4 = st.columns(2)
+                new_issuer = col3.selectbox("投信發行商 (Issuer)", ["元大", "國泰", "群益", "富邦", "復華", "中信"])
+                new_parser = col4.selectbox("解析器類型 (Parser Type)", list(PARSER_REGISTRY.keys()))
+                
+                submit = st.form_submit_button("新增入列 🚀")
+                
+                if submit:
+                    if new_ticker and new_name:
+                        try:
+                            # 測試驗證
+                            parser_instance = get_parser(new_parser, new_ticker, new_issuer)
+                            if parser_instance.validate():
+                                add_etf_config(new_ticker, new_name, new_issuer, new_parser)
+                                populate_mock_history_for_ticker(new_ticker, new_issuer, new_parser)
+                                st.success(f"成功: {new_ticker} {new_name} 已加入雲端偵察序列！")
+                            else:
+                                st.error(f"解析器驗證失敗，無法偵測 {new_issuer} 的配置。")
+                        except Exception as e:
+                            st.error(f"系統錯誤: {e}")
+                    else:
+                        st.warning("請填寫完整的代號與名稱！")
+
+        # 列出現有 DB 中的資料並用 Data_Editor 直接編輯狀態
+        st.subheader("📋 現有觀測序列管理")
+        df_config = get_all_etfs()
+        
+        if not df_config.empty:
+            # 轉換 boolean 以便在 Editor 中使用 Checkbox
+            df_config['is_active'] = df_config['is_active'].astype(bool)
+            
+            edited_df = st.data_editor(
+                df_config,
+                column_config={
+                    "is_active": st.column_config.CheckboxColumn("是否啟用偵察?", default=True),
+                    "ticker": st.column_config.TextColumn("代號", disabled=True),
+                    "name": st.column_config.TextColumn("名稱", disabled=True),
+                    "issuer": st.column_config.TextColumn("投信", disabled=True),
+                    "parser_type": st.column_config.TextColumn("解析器", disabled=True),
+                    "last_updated": st.column_config.DatetimeColumn("最後更新時間", disabled=True)
+                },
+                hide_index=True,
+                use_container_width=True,
+                key='config_editor'
+            )
+            
+            col_s, col_d = st.columns([1, 1])
+            if col_s.button("💾 儲存狀態變更"):
+                edited_df['is_active'] = edited_df['is_active'].astype(int)
+                update_etf_config_status(edited_df)
+                st.success("配置狀態已成功同步至 Supabase 雲端資料庫。")
+                st.rerun()
+                
+            ticker_to_delete = col_d.selectbox("選擇要刪除撤防的 ETF", df_config['ticker'].tolist())
+            if col_d.button("🗑️ 刪除並撤除資料"):
+                delete_etf_config(ticker_to_delete)
+                st.success(f"{ticker_to_delete} 及其雲端歷史數據已全面清除。")
+                st.rerun()
+        else:
+            st.info("目前 Supabase 資料庫中沒有任何觀察目標，請從上方表單新增。")
 
 # ----------------- Tab 2: 每日突擊訊號 (Diff) -----------------
 with tabs[1]:
