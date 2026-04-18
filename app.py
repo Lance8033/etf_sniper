@@ -248,10 +248,10 @@ else:
     target_etf = None
 
 # Main Content Navigation
-tabs = st.tabs(["⚙️ 戰略配置中心", "📋 最新持股 (Current)", "⚔️ 每日突擊訊號 (Diff)", "📈 時空夜視鏡 (Trend Chart)", "📡 投信共識雷達"])
+tabs = st.tabs(["📋 最新持股 (Current)", "⚔️ 每日突擊訊號 (Diff)", "📈 時空夜視鏡 (Trend Chart)", "📡 投信共識雷達", "⚙️ 戰略配置中心"])
 
-# ----------------- Tab 1: 戰略配置中心 -----------------
-with tabs[0]:
+# ----------------- Tab 5: 戰略配置中心 -----------------
+with tabs[4]:
     st.header("戰略配置中心")
     
     if 'is_admin' not in st.session_state:
@@ -374,8 +374,8 @@ with tabs[0]:
         else:
             st.info("目前 Supabase 資料庫中沒有任何觀察目標，請從上方表單新增。")
 
-# ----------------- Tab 2: 最新持股 (Current) -----------------
-with tabs[1]:
+# ----------------- Tab 1: 最新持股 (Current) -----------------
+with tabs[0]:
     st.header("📋 最新持股火力分佈")
     if not global_target_ticker:
         st.warning("👈 請先從左側選單選擇偵察目標，或回到「戰略配置中心」設定啟用。")
@@ -407,8 +407,8 @@ with tabs[1]:
         else:
             st.info(f"並未在 Supabase 搜尋到 {global_target_ticker} 的歷史資料。")
 
-# ----------------- Tab 3: 每日突擊訊號 (Diff) -----------------
-with tabs[2]:
+# ----------------- Tab 2: 每日突擊訊號 (Diff) -----------------
+with tabs[1]:
     st.header("⚔️ 影子比對引擎 - 每日持股突擊訊號")
     
     if not global_target_ticker:
@@ -463,8 +463,8 @@ with tabs[2]:
         else:
              st.info(f"並未在 Supabase 搜尋到 {global_target_ticker} 的任何歷史資料。")
 
-# ----------------- Tab 4: 多天時空夜視鏡 (Trend Chart) -----------------
-with tabs[3]:
+# ----------------- Tab 3: 時空夜視鏡 (Trend Chart) -----------------
+with tabs[2]:
     st.header("📈 時空夜視鏡 - 籌碼趨勢雷達")
     
     if not global_target_ticker:
@@ -493,8 +493,8 @@ with tabs[3]:
         else:
             st.info(f"目前雲端無 {global_target_ticker} 歷史趨勢數據。")
 
-# ----------------- Tab 5: 投信共識雷達 (Consensus Radar) -----------------
-with tabs[4]:
+# ----------------- Tab 4: 投信共識雷達 (Consensus Radar) -----------------
+with tabs[3]:
     st.header("📡 投信共識雷達 - 跨 ETF 聯合建倉追蹤")
     st.markdown("宏觀掃描全市場，找出多檔 ETF **正在不約而同聯手買進** 的共識潛力股。")
     
