@@ -105,6 +105,13 @@ class HtmlTableParser(BaseParser):
         
     def _generate_mock_data(self, date):
         stocks = [("2330", "台積電"), ("2317", "鴻海"), ("2454", "聯發科"), ("2308", "台達電"), ("3008", "大立光")]
+        # 利用日期的單雙數來動態模擬「新增建倉」與「全數清倉」
+        day = int(date.split('-')[-1])
+        if day % 2 == 0:
+            stocks.append(("2382", "廣達")) # 偶數日有廣達
+        else:
+            stocks.append(("2303", "聯電")) # 奇數日有聯電
+            
         data = []
         for sym, name in stocks:
             # 加上一點隨機雜訊，模擬每日權重浮動
