@@ -450,7 +450,7 @@ with tabs[2]:
                 })
                 
                 st.dataframe(styled_df, use_container_width=True)
-                st.markdown("> **說明**: 深綠底為新進成份股(新兵)，深紅底為完全剔除；微綠/微紅底代表權重增減超過 1%。")
+                st.markdown("> **說明**: 淺綠底為新進成份股(新兵)，淺紅底為完全剔除；微綠/微紅底代表權重增減超過 1%。")
             else:
                 st.info(f"目標 {global_target_ticker} 在雲端的歷史資料不足兩天，無法進行 Diff 比較。")
         else:
