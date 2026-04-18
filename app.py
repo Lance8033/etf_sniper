@@ -510,7 +510,8 @@ with tabs[4]:
         df_all = pd.DataFrame(response.data)
         
         if not df_all.empty:
-            consensus_records = []
+            consensus_positive = []
+            consensus_negative = []
             
             # 對每一個 ETF 分別計算最新的 Diff
             for ticker in active_tickers:
@@ -527,61 +528,62 @@ with tabs[4]:
                     df_diff.fillna(0, inplace=True)
                     df_diff['diff_weight'] = df_diff['weight_new'] - df_diff['weight_old']
                     
-                    # 只保留有增加的 (加碼 或 新兵入列)，避免受到微小的浮點數影響，設定 > 0.001
-                    df_diff_positive = df_diff[df_diff['diff_weight'] > 0.001]
+                    # 過濾正向加碼與負向減碼
+                    df_diff_pos = df_diff[df_diff['diff_weight'] > 0.001]
+                    df_diff_neg = df_diff[df_diff['diff_weight'] < -0.001]
                     
-                    for _, row in df_diff_positive.iterrows():
-                        consensus_records.append({
-                            'stock_symbol': row['stock_symbol'],
-                            'stock_name': row['stock_name'],
-                            'source_etf': ticker,
-                            'diff_weight': row['diff_weight']
+                    for _, row in df_diff_pos.iterrows():
+                        consensus_positive.append({
+                            'stock_symbol': row['stock_symbol'], 'stock_name': row['stock_name'],
+                            'source_etf': ticker, 'diff_weight': row['diff_weight']
+                        })
+                    for _, row in df_diff_neg.iterrows():
+                        consensus_negative.append({
+                            'stock_symbol': row['stock_symbol'], 'stock_name': row['stock_name'],
+                            'source_etf': ticker, 'diff_weight': abs(row['diff_weight']) # 取絕對值方便後續排序與觀看
                         })
             
-            if consensus_records:
-                df_consensus = pd.DataFrame(consensus_records)
+            st.subheader("🔥 投信聯手加碼 (建倉) 共識")
+            if consensus_positive:
+                df_pos = pd.DataFrame(consensus_positive)
+                df_grouped_pos = df_pos.groupby(['stock_symbol', 'stock_name']).agg(
+                    ETF家數=('source_etf', 'count'), 總加碼權重=('diff_weight', 'sum'), 買進的ETF清單=('source_etf', lambda x: ', '.join(x))
+                ).reset_index().sort_values(by=['ETF家數', '總加碼權重'], ascending=[False, False]).reset_index(drop=True)
                 
-                # 聚類分組 (Group by 股票代號)
-                df_grouped = df_consensus.groupby(['stock_symbol', 'stock_name']).agg(
-                    ETF家數=('source_etf', 'count'),
-                    總加碼權重=('diff_weight', 'sum'),
-                    買進的ETF清單=('source_etf', lambda x: ', '.join(x))
-                ).reset_index()
-                
-                # 排序: 首要看幾家一起買，次要看權重買多少
-                df_grouped = df_grouped.sort_values(by=['ETF家數', '總加碼權重'], ascending=[False, False]).reset_index(drop=True)
-                
-                # 欄位美化
-                df_grouped = df_grouped.rename(columns={
-                    'stock_symbol': '股票代號',
-                    'stock_name': '股票名稱'
-                })
-                
-                # 畫出來
+                df_grouped_pos = df_grouped_pos.rename(columns={'stock_symbol': '股票代號', 'stock_name': '股票名稱'})
                 st.dataframe(
-                    df_grouped,
-                    use_container_width=True,
-                    hide_index=True,
+                    df_grouped_pos, use_container_width=True, hide_index=True,
                     column_config={
-                        '股票代號': st.column_config.TextColumn("股票代號", width="small"),
-                        '股票名稱': st.column_config.TextColumn("股票名稱", width="small"),
-                        'ETF家數': st.column_config.ProgressColumn(
-                            "聯手建倉家數",
-                            help="有幾家 ETF 在最新交易日同步買進",
-                            format="%d 家",
-                            min_value=0,
-                            max_value=max(int(df_grouped['ETF家數'].max()), 1)
-                        ),
-                        '總加碼權重': st.column_config.NumberColumn(
-                            "總增幅綜合權重 (%)",
-                            help="被這幾家 ETF 同步加碼的權重百分比總和",
-                            format="%.2f%%"
-                        ),
-                        '買進的ETF清單': st.column_config.TextColumn("參與買進的 ETF", width="medium")
+                        '股票代號': st.column_config.TextColumn("代號", width="small"),
+                        '股票名稱': st.column_config.TextColumn("名稱", width="small"),
+                        'ETF家數': st.column_config.ProgressColumn("聯手買進家數", format="%d 家", min_value=0, max_value=max(int(df_grouped_pos['ETF家數'].max()), 1)),
+                        '總加碼權重': st.column_config.NumberColumn("總增幅權重 (%)", format="%.2f%%"),
+                        '買進的ETF清單': st.column_config.TextColumn("參與買進的 ETF清單", width="medium")
                     }
                 )
-                st.markdown("> 🎯 **戰情室雷達解讀**: 此處**只顯示最新一日內被投信「聯手加碼」或「新建倉」**的子彈股。排名越前面的股票，被越多檔高股息/科技 ETF 同時買進，代表越是近期的**主力共識股**！如果您要挑選建倉目標，這裡就是黃金池。")
             else:
-                st.info("在最新的兩日變動中，目前所有的觀察目標 ETF 均沒有出現個股加碼的動作。")
+                st.info("近期沒有出現個股加碼的動作。")
+                
+            st.markdown("---")
+            st.subheader("🧊 投信聯手減碼 (拋售) 共識")
+            if consensus_negative:
+                df_neg = pd.DataFrame(consensus_negative)
+                df_grouped_neg = df_neg.groupby(['stock_symbol', 'stock_name']).agg(
+                    ETF家數=('source_etf', 'count'), 總減碼權重=('diff_weight', 'sum'), 賣出的ETF清單=('source_etf', lambda x: ', '.join(x))
+                ).reset_index().sort_values(by=['ETF家數', '總減碼權重'], ascending=[False, False]).reset_index(drop=True)
+                
+                df_grouped_neg = df_grouped_neg.rename(columns={'stock_symbol': '股票代號', 'stock_name': '股票名稱'})
+                st.dataframe(
+                    df_grouped_neg, use_container_width=True, hide_index=True,
+                    column_config={
+                        '股票代號': st.column_config.TextColumn("代號", width="small"),
+                        '股票名稱': st.column_config.TextColumn("名稱", width="small"),
+                        'ETF家數': st.column_config.ProgressColumn("聯手拋售家數", format="%d 家", min_value=0, max_value=max(int(df_grouped_neg['ETF家數'].max()), 1)),
+                        '總減碼權重': st.column_config.NumberColumn("總砍單權重 (%)", format="-%.2f%%"),
+                        '賣出的ETF清單': st.column_config.TextColumn("參與賣出的 ETF清單", width="medium")
+                    }
+                )
+            else:
+                st.info("近期沒有出現個股減碼的動作。")
         else:
             st.info("雲端資料庫目前尚無可用歷史紀錄來進行比對計算。")
