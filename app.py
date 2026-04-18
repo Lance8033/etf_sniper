@@ -221,8 +221,20 @@ st.sidebar.markdown("### 🎯 狙擊偵察目標")
 st.sidebar.markdown("---")
 active_etfs = get_active_etfs()
 if not active_etfs.empty:
-    options = active_etfs['ticker'] + " - " + active_etfs['name']
-    target_etf = st.sidebar.radio("選擇要觀察的 ETF：", options)
+    options = (active_etfs['ticker'] + " - " + active_etfs['name']).tolist()
+    
+    # 初始化選項狀態
+    if 'selected_target_etf' not in st.session_state or st.session_state['selected_target_etf'] not in options:
+        st.session_state['selected_target_etf'] = options[0]
+        
+    for opt in options:
+        # 被選中的目標顯示醒目按鈕(primary)，其餘為一般按鈕(secondary)
+        btn_type = "primary" if st.session_state['selected_target_etf'] == opt else "secondary"
+        if st.sidebar.button(opt, use_container_width=True, type=btn_type):
+            st.session_state['selected_target_etf'] = opt
+            st.rerun()
+            
+    target_etf = st.session_state['selected_target_etf']
     global_target_ticker = target_etf.split(" - ")[0]
 else:
     global_target_ticker = None
