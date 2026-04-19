@@ -1,12 +1,23 @@
 import streamlit as st
 import pandas as pd
 import datetime
+import os
 from supabase import create_client, Client
 
 @st.cache_resource
 def init_connection() -> Client:
-    url = st.secrets.get("SUPABASE_URL")
-    key = st.secrets.get("SUPABASE_KEY")
+    # 優先從環境變數讀取 (適用於 GitHub Actions / Docker)
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_KEY")
+    
+    # 如果環境變數沒抓到，再嘗試從 Streamlit Secrets 讀取 (適用於本地 UI)
+    if not url or not key:
+        try:
+            url = st.secrets.get("SUPABASE_URL")
+            key = st.secrets.get("SUPABASE_KEY")
+        except Exception:
+            pass
+            
     if not url or not key:
         return None
     return create_client(url, key)

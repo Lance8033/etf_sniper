@@ -1,0 +1,32 @@
+name: Daily ETF Sniper Sync
+
+on:
+  schedule:
+    # 台北時間凌晨 03:00 (UTC 19:00 前一晚)
+    - cron: '0 19 * * *'
+  workflow_dispatch: # 允許手動從 GitHub 介面觸發
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests pandas supabase streamlit plotly
+        # 如果有 requirements.txt 也可以使用: pip install -r requirements.txt
+
+    - name: Run Daily Sync Script
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      run: python cron_sync.py
