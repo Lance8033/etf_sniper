@@ -1,20 +1,28 @@
 import datetime
 from parsers.mock_parser import MockHtmlTableParser, MockCsvDownloadParser
 from parsers.unipresident import UniPresidentParser
-from core.database import supabase, check_db_connection
+from parsers.taishin import TaishinParser
+from parsers.capital import CapitalParser
+from core.database import supabase, check_db_connection, init_connection
 
 # Parser Factory Mapping
 PARSER_REGISTRY = {
     "網頁表格型 (HTML Table)": MockHtmlTableParser,
-    "CSV下載型 (CSV Download)": MockCsvDownloadParser
+    "CSV下載型 (CSV Download)": MockCsvDownloadParser,
+    "台新投信專用": TaishinParser,
+    "群益投信專用": CapitalParser
 }
 
 def get_parser(parser_type: str, ticker: str, issuer: str):
     """獲取解析器實例處理路徑"""
-    print(f"DEBUG: get_parser called with issuer='{issuer}' (len={len(issuer)})")
     # 優先檢查是否有特定投信的專用解析器
-    if issuer.strip() == "統一":
+    issuer_clean = issuer.strip()
+    if issuer_clean == "統一":
         return UniPresidentParser(ticker, issuer)
+    elif issuer_clean == "台新":
+        return TaishinParser(ticker, issuer)
+    elif issuer_clean == "群益":
+        return CapitalParser(ticker, issuer)
         
     parser_class = PARSER_REGISTRY.get(parser_type)
     if not parser_class:

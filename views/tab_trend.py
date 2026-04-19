@@ -46,9 +46,12 @@ def render(global_target_ticker, target_etf):
             # 填充 NaN (第一天) 為 0
             df_all['active_move'] = df_all['active_move'].fillna(0)
             
-            # 4. 側邊欄過濾與選擇
+            # 4. 自動挑選權重前三名作為預設值
+            latest_date = df_all['date'].max()
+            top_3_labels = df_all[df_all['date'] == latest_date].sort_values('weight', ascending=False)['display_label'].head(3).tolist()
+            
             labels_available = sorted(df_all['display_label'].unique())
-            selected_labels = st.multiselect("選擇欲觀察的成份股", labels_available, default=labels_available[:3])
+            selected_labels = st.multiselect("選擇欲觀察的成份股", labels_available, default=top_3_labels)
             
             if selected_labels:
                 plot_data = df_all[df_all['display_label'].isin(selected_labels)]

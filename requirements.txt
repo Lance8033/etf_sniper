@@ -4,3 +4,5 @@ plotly
 supabase
 requests
 matplotlib
+beautifulsoup4
+lxml

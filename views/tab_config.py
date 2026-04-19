@@ -7,12 +7,12 @@ ISSUER_MAPPING = {
     "元大": ("元大", "網頁表格型 (HTML Table)"),
     "國泰": ("國泰", "CSV下載型 (CSV Download)"),
     "富邦": ("富邦", "網頁表格型 (HTML Table)"),
-    "群益": ("群益", "網頁表格型 (HTML Table)"),
+    "群益": ("群益", "群益投信專用"),
     "復華": ("復華", "CSV下載型 (CSV Download)"),
     "中信": ("中信", "網頁表格型 (HTML Table)"),
     "統一": ("統一", "網頁表格型 (HTML Table)"),
     "凱基": ("凱基", "網頁表格型 (HTML Table)"),
-    "台新": ("台新", "網頁表格型 (HTML Table)"),
+    "台新": ("台新", "台新投信專用"),
     "兆豐": ("兆豐", "網頁表格型 (HTML Table)"),
     "永豐": ("永豐", "網頁表格型 (HTML Table)"),
     "野村": ("野村", "網頁表格型 (HTML Table)"),
@@ -66,18 +66,27 @@ def render():
             
             if auto_ticker:
                 with st.spinner("🚀 正在向證券交易所連線查詢名稱與發行商..."):
-                    fetched_name = fetch_twse_etf_name(auto_ticker)
-                    if fetched_name:
-                        auto_name = fetched_name
-                        # 簡單推論發行商
-                        for keyword, (issuer, parser) in ISSUER_MAPPING.items():
-                            if keyword in auto_name:
-                                auto_issuer = issuer
-                                auto_parser = parser
-                                break
-                        st.success(f"✅ 自動查獲目標：**{auto_name}** | 系統推測投信：**{auto_issuer}**")
+                    if "00936" in auto_ticker:
+                        auto_name = "台新臺灣永續高息中小型"
+                        auto_issuer = "台新"
+                        auto_parser = "台新投信專用"
+                    elif "00919" in auto_ticker:
+                        auto_name = "群益台灣精選高息"
+                        auto_issuer = "群益"
+                        auto_parser = "群益投信專用"
                     else:
-                        st.warning("⚠️ 證交所公開資料中並未尋獲此代號，請在下方手動填寫補充。")
+                        fetched_name = fetch_twse_etf_name(auto_ticker)
+                        if fetched_name:
+                            auto_name = fetched_name
+                            # 簡單推論發行商
+                            for keyword, (issuer, parser) in ISSUER_MAPPING.items():
+                                if keyword in auto_name:
+                                    auto_issuer = issuer
+                                    auto_parser = parser
+                                    break
+                            st.success(f"✅ 自動查獲目標：**{auto_name}** | 系統推測投信：**{auto_issuer}**")
+                        else:
+                            st.warning("⚠️ 證交所公開資料中並未尋獲此代號，請在下方手動填寫補充。")
             
             st.markdown("---")
             with st.form("add_etf_form", clear_on_submit=True):

@@ -2,3 +2,7 @@
 __pycache__/
 *.pyc
 .DS_Store
+debug_*.py
+test_*.py
+deep_diag_*.py
+.venv/
