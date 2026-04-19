@@ -3,6 +3,7 @@ from parsers.mock_parser import MockHtmlTableParser, MockCsvDownloadParser
 from parsers.unipresident import UniPresidentParser
 from parsers.taishin import TaishinParser
 from parsers.capital import CapitalParser
+from parsers.nomura import NomuraParser
 from core.database import supabase, check_db_connection, init_connection
 
 # Parser Factory Mapping
@@ -10,7 +11,8 @@ PARSER_REGISTRY = {
     "網頁表格型 (HTML Table)": MockHtmlTableParser,
     "CSV下載型 (CSV Download)": MockCsvDownloadParser,
     "台新投信專用": TaishinParser,
-    "群益投信專用": CapitalParser
+    "群益投信專用": CapitalParser,
+    "野村投信專用": NomuraParser
 }
 
 def get_parser(parser_type: str, ticker: str, issuer: str):
@@ -23,6 +25,8 @@ def get_parser(parser_type: str, ticker: str, issuer: str):
         return TaishinParser(ticker, issuer)
     elif issuer_clean == "群益":
         return CapitalParser(ticker, issuer)
+    elif issuer_clean == "野村":
+        return NomuraParser(ticker, issuer)
         
     parser_class = PARSER_REGISTRY.get(parser_type)
     if not parser_class:
